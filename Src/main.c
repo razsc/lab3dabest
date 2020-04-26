@@ -171,18 +171,12 @@ void phy_Tx()
 	static uint16_t shifter =1; // for the masking in order to iso the bit
 	static uint8_t transfer = 0; // var to the masked bit // saves the prev clock value in order to check that we are in rising edge
 	static int first_idle=1;
-	static int countergood=1;
 	static int flagfix =0;
 	static int flagfix2 =0;
 	static int flagfix3 =0;
 	static int first_3_ones=0;
+	static int bdika=0;
 
-	if (countergood)
-	{
-		HAL_TIM_Base_Start(&htim4); //turn on timer
-		HAL_TIM_Base_Start_IT(&htim4);
-		countergood=0;
-	}
 	if(!interface_tx_flag&&first_idle)
 	{
 		just_send_it('I');
@@ -247,16 +241,23 @@ void phy_Tx()
 
 
 
-	if ( shifter > 128) // after the last bit
+	if( shifter > 256) // after the last bit
 	{
-		HAL_TIM_Base_Stop(&htim3);
-		HAL_TIM_Base_Stop_IT(&htim3);
-		just_send_it('I'); // put idle on the line
-		spysky=1;
-		HAL_GPIO_WritePin(phy_tx_busy_GPIO_Port, phy_tx_busy_Pin, GPIO_PIN_RESET); //set phy busy to 0
-		phy_tx_busy=0;
-		shifter =1; // reset the masker
-		first_3_ones=0;	
+		if (bdika)
+		{
+			HAL_TIM_Base_Stop(&htim3);
+			HAL_TIM_Base_Stop_IT(&htim3);
+			just_send_it('I'); // put idle on the line
+			spysky=1;
+			HAL_GPIO_WritePin(phy_tx_busy_GPIO_Port, phy_tx_busy_Pin, GPIO_PIN_RESET); //set phy busy to 0
+			phy_tx_busy=0;
+			shifter =1; // reset the masker
+			first_3_ones=0;
+			bdika=0;			
+		}
+		else
+			bdika=1;
+		
 	}				
 	
 }
@@ -374,6 +375,22 @@ void phy_Tx()
 
 void phy_Rx()
 {
+	static int start=1;
+	if (start)
+	{
+		HAL_TIM_Base_Start(&htim4); //turn on timer
+		HAL_TIM_Base_Start_IT(&htim4);
+		start=0;
+	}
+	
+}
+
+
+
+
+/*
+void phy_Rx()
+{
 	static uint32_t tempi = 0;
 	static uint32_t tempi2 = 0;
 	static int sfirst_3_ones =0;
@@ -390,29 +407,7 @@ void phy_Rx()
 		samples=0;
 		return;
 	}
-	/*
-	else if (sfirst_3_ones <3  && syncer) 
-	{
-		//	start the timer in order to count the timers so we know what time does the timers need to set the timers and check that we get 3 ones  	
-		if ((all_samples[0] == 'H'	&& all_samples[1] == 'H' && all_samples[2] == 'L' && all_samples[3] == 'L' && all_samples[4] == 'L') || (all_samples[0] == 'H'	&& all_samples[1] == 'H' && all_samples[2] == 'H' && all_samples[3] == 'L' && all_samples[4] == 'L'))
-		{
-				sfirst_3_ones++; 
-		}
-		else if (((all_samples[0] == 'L'	&& all_samples[1] == 'H') || (all_samples[0] == 'H'	&& all_samples[1] == 'L') || (all_samples[0] == 'I'	&& all_samples[1] == 'H') || (all_samples[0] == 'I'	&& all_samples[1] == 'L')  )&& replace_counter == 0)
-		{
-			all_samples [0] = all_samples[1];
-			all_samples [1] = all_samples[2];
-			all_samples [2] = all_samples[3];
-			all_samples [3] = all_samples[4];
-			samples--;
-			replace_counter =1; 
-		}		
-		else 
-		{
-			return;
-		}
-	}
-	*/
+
 	if(sfirst_3_ones <3)
 	{
 		if ((all_samples[0] == 'H'	&& all_samples[1] == 'H' && all_samples[2] == 'L' && all_samples[3] == 'L' && all_samples[4] == 'L') || (all_samples[0] == 'H'	&& all_samples[1] == 'H' && all_samples[2] == 'H' && all_samples[3] == 'L' && all_samples[4] == 'L'))
@@ -465,7 +460,7 @@ void phy_Rx()
 		samples=0;
 	}
 }
-
+*/
 
 
 
@@ -741,9 +736,9 @@ static void MX_TIM3_Init(void)
   TIM_MasterConfigTypeDef sMasterConfig;
 
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 4999;
+  htim3.Init.Prescaler = 3332;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 4;
+  htim3.Init.Period = 6;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)

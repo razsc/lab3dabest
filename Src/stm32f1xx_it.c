@@ -40,7 +40,6 @@ extern uint32_t clock;
 extern int samples;
 extern char all_samples[5];
 static uint32_t holder = 0;
-extern int sfirst_3_ones;
 #define HIGH_THRESH 3200
 #define LOW_THRESH 1500
 extern ADC_HandleTypeDef hadc1;
@@ -50,7 +49,14 @@ static int sample2=0;
 static int sample3=0;
 static int sample4=0;
 static int sample5=0;
-
+static uint32_t sfirst_3_ones=0;
+extern uint8_t interface_rx_flag;
+extern uint32_t phy_to_dll_rx_bus;
+static uint32_t tempi2 = 0;
+static uint32_t masker =1;
+static uint32_t l_checker =0;
+static int lazet=0;
+static int biti=1;
 
 
 /* USER CODE END 0 */
@@ -249,48 +255,180 @@ void TIM4_IRQHandler(void)
   /* USER CODE END TIM4_IRQn 0 */
   HAL_TIM_IRQHandler(&htim4);
   /* USER CODE BEGIN TIM4_IRQn 1 */
-  if(samples == 5)
+	if(samples < 5)
 	{
-		samples=0;
-	}
-	while(HAL_ADC_PollForConversion(&hadc1,5) != HAL_OK){}
-	holder = HAL_ADC_GetValue(&hadc1);	
-	if( holder <= LOW_THRESH )
-		{
-			all_samples[samples] = 'L';
-			samples ++;
-			
-		}
-		else if (holder >= HIGH_THRESH )
+		while(HAL_ADC_PollForConversion(&hadc1,5) != HAL_OK){}
+		holder = HAL_ADC_GetValue(&hadc1);
+		if(holder > HIGH_THRESH )
 		{
 			all_samples[samples] = 'H';
-			samples ++;			
-		}	
-		else if ((LOW_THRESH < holder)&& (holder < HIGH_THRESH))
-		{						
+			if(biti == 1)
+				sfirst_3_ones = 0;
+		}
+		else if(holder < LOW_THRESH)
+		{
+			all_samples[samples] = 'L';
+		}
+		else
+		{
 			all_samples[samples] = 'I';
-			samples ++;			
 		}
-		if (samples ==1)
+		samples++;
+	}
+	else if(samples == 5)
+	{
+		if(sfirst_3_ones == 3 )
 		{
-			sample1=all_samples[samples-1];
+			masker = 1;
+			tempi2 = 0;
+			sfirst_3_ones++;
 		}
-		if (samples ==2)
-		{
-			sample2=all_samples[samples-1];
+		if((((all_samples[0] == 'L' && all_samples[1] == 'L'  && all_samples[2] == 'L' ) && (all_samples[4] == 'H'  && all_samples[4] == 'H' )) || ((all_samples[0] == 'L'  && all_samples[1] == 'L' ) && (all_samples[2] == 'H'  &&all_samples[3] == 'H' && all_samples[4] == 'H' ))))
+		{ 
+				biti = 0;
+				masker*=2;
+				samples = 0;			
 		}
-		if (samples ==3)
-		{
-			sample3=all_samples[samples-1];
-		}	
-		if (samples ==4)
-		{
-			sample4=all_samples[samples-1];
+		else if((((all_samples[0] == 'H' && all_samples[1] == 'H'  && all_samples[2] == 'H' ) && (all_samples[4] == 'L'  && all_samples[4] == 'L' )) || ((all_samples[0] == 'H'  && all_samples[1] == 'H' ) && (all_samples[2] == 'L'  &&all_samples[3] == 'L'))))
+		{ 
+			if(biti == 1)
+				sfirst_3_ones = 0;
+			
+			if(sfirst_3_ones < 3)
+			{
+				sfirst_3_ones++;
+			}
+			else
+			{
+				tempi2 += masker;
+				masker = masker*2;
+			}
+			biti = 2;
+			samples = 0;
 		}
-		if (samples ==5)
+		else if(all_samples[0] == 'I' && all_samples[1] == 'I' && all_samples[2] == 'I' && all_samples[3] == 'I' && all_samples[4] == 'I')
 		{
-			sample5=all_samples[samples-1];
-		}			
+
+			biti = 1;
+			samples = 0;
+		}
+		else
+		{
+			all_samples[0] = all_samples[1];
+			all_samples[1] = all_samples[2];
+			all_samples[2] = all_samples[3];
+			all_samples[3] = all_samples[4];				
+			samples--;
+		}
+		if(masker > 128 )
+		{
+			masker = 1;
+			phy_to_dll_rx_bus = tempi2;
+			interface_rx_flag=1;
+			tempi2 = 0;
+			sfirst_3_ones = 0;
+		}
+	}	
+	
+	
+	
+	
+	
+	
+/*	
+	static uint32_t tempi = 0;
+	static int replace_counter =0;
+	static int syncer = 1;
+	static int foromer=0;
+	if(samples<5)
+	{
+		while(HAL_ADC_PollForConversion(&hadc1,5) != HAL_OK){}
+		holder = HAL_ADC_GetValue(&hadc1);	
+		if( holder <= LOW_THRESH )
+			{
+				all_samples[samples] = 'L';
+				samples ++;
+			}
+		else if (holder >= HIGH_THRESH )
+			{
+				all_samples[samples] = 'H';
+				samples++;
+			}	
+		else if ((LOW_THRESH < holder)&& (holder < HIGH_THRESH))
+			{						
+				all_samples[samples] = 'I';
+				samples++;		
+			}
+		}
+	else if (samples ==5)
+	{
+		if(sfirst_3_ones <3)
+		{
+			if ((all_samples[0] == 'H'	&& all_samples[1] == 'H' && all_samples[2] == 'L' && all_samples[3] == 'L' && all_samples[4] == 'L') || (all_samples[0] == 'H'	&& all_samples[1] == 'H' && all_samples[2] == 'H' && all_samples[3] == 'L' && all_samples[4] == 'L'))
+			{
+				sfirst_3_ones++;
+				masker=1;
+				samples=0;
+				biti=3;
+				tempi2=0;
+			}
+			else
+			{
+				tempi2=0;
+				masker=1;
+				samples=0;
+			}
+		}
+		else if (all_samples[0] == 'I' || all_samples [1] == 'I' || all_samples[2] == 'I' || all_samples[3] == 'I' || all_samples[4] == 'I')
+			{
+				samples=0;
+				biti=1;
+				sfirst_3_ones=0;
+			}
+		else if ((sfirst_3_ones>=3)&&((all_samples[0] == 'L'	&& all_samples[1] == 'L' && all_samples[2] == 'L' && all_samples[3] == 'H' && all_samples[4] == 'H') || (all_samples[0] == 'L'	&& all_samples[1] == 'L' && all_samples[2] == 'H' && all_samples[3] == 'H' && all_samples[4] == 'H')))
+			{
+					masker *=2;
+					samples =0;
+					biti=0;
+			}
+		else if ((sfirst_3_ones>=3)&&((all_samples[0] == 'H'	&& all_samples[1] == 'H' && all_samples[2] == 'L' && all_samples[3] == 'L' && all_samples[4] == 'L') || (all_samples[0] == 'H'	&& all_samples[1] == 'H' && all_samples[2] == 'H' && all_samples[3] == 'L' && all_samples[4] == 'L')))
+			{
+				// the bit is 1 add one to the bus uising masking
+				tempi2+=masker;
+				masker*=2;
+				samples =0;
+				biti=2;
+			}
+		else
+			{
+				all_samples [0] = all_samples[1];
+				all_samples [1] = all_samples[2];
+				all_samples [2] = all_samples[3];
+				all_samples [3] = all_samples[4];
+				if (samples!=0)
+				{
+					samples--;
+				}
+				replace_counter =1;	
+			}
+		if (masker >128)
+			{
+				phy_to_dll_rx_bus=tempi2;
+				tempi2=0;
+				syncer=1;
+				interface_rx_flag=1;
+				masker=1;
+				sfirst_3_ones=0;
+				samples=0;
+				biti=1;
+				lazet=0;
+			}
+*/			
+		
+		
+		
+		
+		
   /* USER CODE END TIM4_IRQn 1 */
 }
 
