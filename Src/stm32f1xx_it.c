@@ -51,12 +51,14 @@ static int sample4=0;
 static int sample5=0;
 static uint32_t sfirst_3_ones=0;
 extern uint8_t interface_rx_flag;
+extern uint32_t dll_to_phy_tx_bus;
 extern uint32_t phy_to_dll_rx_bus;
 static uint32_t tempi2 = 0;
 static uint32_t masker =1;
 static uint32_t l_checker =0;
 static int lazet=0;
 static int biti=1;
+static int badok=0;
 
 
 /* USER CODE END 0 */
@@ -281,6 +283,7 @@ void TIM4_IRQHandler(void)
 		{
 			masker = 1;
 			tempi2 = 0;
+			badok=0;
 			sfirst_3_ones++;
 		}
 		if((((all_samples[0] == 'L' && all_samples[1] == 'L'  && all_samples[2] == 'L' ) && (all_samples[4] == 'H'  && all_samples[4] == 'H' )) || ((all_samples[0] == 'L'  && all_samples[1] == 'L' ) && (all_samples[2] == 'H'  &&all_samples[3] == 'H' && all_samples[4] == 'H' ))))
@@ -314,23 +317,40 @@ void TIM4_IRQHandler(void)
 		}
 		else
 		{
+			if (badok<2)
+			{
 			all_samples[0] = all_samples[1];
 			all_samples[1] = all_samples[2];
 			all_samples[2] = all_samples[3];
 			all_samples[3] = all_samples[4];				
 			samples--;
+			}
+			else
+			{
+				badok+=1;
+				tempi2=0;
+				masker=1;
+				//samples=0;
+				//biti=1;
+			}
 		}
 		if(masker > 128 )
 		{
 			masker = 1;
-			phy_to_dll_rx_bus = tempi2;
+			if (dll_to_phy_tx_bus==tempi2)
+			{
+				phy_to_dll_rx_bus = tempi2;
+			}
+			else
+			{
+				phy_to_dll_rx_bus=0;
+			}
 			interface_rx_flag=1;
 			tempi2 = 0;
 			sfirst_3_ones = 0;
+			badok=0;
 		}
-	}	
-	
-	
+	}
 	
 	
 	

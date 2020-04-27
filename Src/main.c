@@ -238,28 +238,18 @@ void phy_Tx()
 			flagfix=0;
 		}		
 	}
-
-
-
+	
 	if( shifter > 256) // after the last bit
 	{
-		if (bdika)
-		{
 			HAL_TIM_Base_Stop(&htim3);
 			HAL_TIM_Base_Stop_IT(&htim3);
-			just_send_it('I'); // put idle on the line
+			just_send_it('I'); // put idle on the li
 			spysky=1;
 			HAL_GPIO_WritePin(phy_tx_busy_GPIO_Port, phy_tx_busy_Pin, GPIO_PIN_RESET); //set phy busy to 0
 			phy_tx_busy=0;
 			shifter =1; // reset the masker
 			first_3_ones=0;
-			bdika=0;			
-		}
-		else
-			bdika=1;
-		
 	}				
-	
 }
 
 
